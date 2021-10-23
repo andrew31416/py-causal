@@ -100,3 +100,71 @@ def test_is_d_connected():
     #     n5
     # is unblocked path from n1 to n3 when we condition on n5
     assert DirectedGraph.is_conditionally_d_connected(n1, n3, [n5])
+
+
+def test_is_backdoor_criterion_satisfied():
+    #-----------#
+    # Example 1 #
+    xi = Node('xi') # treatment in this example
+    xj = Node('xj') # outcome in this example
+    x1 = Node('x1')
+    x2 = Node('x2')
+    x3 = Node('x3')
+    x4 = Node('x4')
+    x5 = Node('x5')
+    x6 = Node('x6')
+
+    xi.add_parent(x3) # back door path
+    xi.add_parent(x4) # back door path
+    xi.add_child(x6)  # front door path
+    x6.add_child(xj)
+    x3.add_parent(x1)
+    x1.add_child(x4)
+    x4.add_parent(x2)
+    x4.add_child(xj)
+    x2.add_child(x5)
+    x5.add_child(xj)
+
+    assert DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
+                                                         outcome=xj,
+                                                         conditioned_on=[x3, x4],
+                                                         )
+    assert DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
+                                                         outcome=xj,
+                                                         conditioned_on=[x4, x5],
+                                                         )
+    assert not DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
+                                                             outcome=xj,
+                                                             conditioned_on=[x4],
+                                                             )
+    #-----------#
+
+    #-----------#
+    # Example 2 #
+    x = Node('x')
+    y = Node('y')
+    z = Node('z')
+
+    z.add_child(x)
+    z.add_child(y)
+    x.add_child(y)
+
+    assert DirectedGraph.is_backdoor_criterion_satisfied(treatment=x,
+                                                         outcome=y,
+                                                         conditioned_on=[z]
+                                                         )
+    #-----------#
+
+
+def test_is_frontdoor_criterion_satisfied():
+    x = Node('x')
+    y = Node('y')
+    z = Node('z')
+    u = Node('u')
+
+    x.add_child(z)
+    z.add_child(y)
+    u.add_child(y)
+    u.add_child(x)
+
+    assert DirectedGraph.is_frontdoor_criterion_satisfied(x, y, [z])

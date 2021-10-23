@@ -179,6 +179,9 @@ def test_is_conditionally_unblocked():
     # collider n2 blocks path from n1 to n4
     assert not path.is_conditionally_unblocked(n1, n4, [n3])
 
+    # conditioning on a collider means that collider no longer blocks path
+    assert path.is_conditionally_unblocked(n1, n4, [n2])
+
     # lets add a child to the collider node
     n5 = Node('n5')
     # n1->n2<-n3->n4
@@ -222,3 +225,38 @@ def test_is_conditionally_unblocked():
     assert path.is_conditionally_unblocked(s, y, [p])
     assert not path.is_conditionally_unblocked(x, u, [r, p])
     #---------------------------#
+
+
+def test_is_backdoor_path():
+    n1 = Node('n1')
+    n2 = Node('n2')
+    n3 = Node('n3')
+
+    # n1<-n2<-n3
+    n2.add_child(n1)
+    n3.add_child(n2)
+
+    path = Path([n1, n2, n3])
+
+    assert path.is_backdoor_path(treatment=n1, outcome=n3)
+    assert not path.is_backdoor_path(treatment=n2, outcome=n1)
+
+
+def test_is_directed_path():
+    n1 = Node('n1')
+    n2 = Node('n2')
+    n3 = Node('n3')
+    n4 = Node('n4')
+
+    # n1->n2<-n3->n4
+    n1.add_child(n2)
+    n3.add_child(n2)
+    n3.add_child(n4)
+
+    path = Path([n1 ,n2, n3 , n4])
+    assert path.is_directed_path(n1, n2)
+    assert not path.is_directed_path(n1, n3)
+    assert not path.is_directed_path(n1, n4)
+    assert not path.is_directed_path(n2, n4)
+    assert path.is_directed_path(n3, n4)
+    assert path.is_directed_path(n3, n2)

@@ -143,9 +143,11 @@ class Path:
         
         subpath = self.get_subpath(node1, node2)
 
-        if any(list(map(subpath.is_node_in_path, condition_on))):
-            # path cannot contain any variables that are conditioned on
-            return False
+        for _node in condition_on:
+            if subpath.is_node_in_path(_node) and not subpath.is_collider(_node):
+                # path cannot contain any variables that are conditioned on
+                # except a collider
+                return False
         
         if subpath.has_collider():
             # colliders in subpath not do block the path, IF collider has a
@@ -154,6 +156,10 @@ class Path:
             colliders = [_n for _n in subpath.nodes if subpath.is_collider(_n)]
 
             for _collider in colliders:
+                # conditioning on collider unblocks the path
+                if _collider in condition_on:
+                    return True
+
                 children = _collider.get_children()
 
                 if len(children) > 0:
@@ -188,3 +194,33 @@ class Path:
         indices = sorted(list(map(self.location_in_path, [node1, node2])))
 
         return Path(self.nodes[indices[0]: indices[1]+1])
+
+    def is_backdoor_path(self, treatment: Node, outcome: Node) -> bool:
+        """
+        Returns True if the path from treatment to outcome ends with an arrow
+        into the treatment node.
+        """
+        subpath = self.get_subpath(treatment, outcome)
+
+        # index for treatment node, can be first or last index
+        idx = subpath.location_in_path(treatment)
+
+        neighbour_idx = 1 if idx == 0 else len(subpath)-1
+
+        return subpath.nodes[neighbour_idx].has_child(treatment)
+
+    def is_directed_path(self, src: Node, dst: Node) -> bool:
+        """
+        Returns True if path from src to dst nodes contains only directional
+        dependencies pointing towards the destination node.
+        """
+        # this is unordered
+        subpath = self.get_subpath(src, dst)
+
+        if subpath.nodes[0] != src:
+            # format so that subpath.nodes[0] = src and we therefore expect
+            # right arrows from src -> dst
+            subpath = Path.reverse(subpath)
+
+        return all([subpath.nodes[ii].has_child(subpath.nodes[ii+1])
+                    for ii in range(len(subpath)-1)])

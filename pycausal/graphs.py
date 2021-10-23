@@ -1,5 +1,6 @@
 from copy import deepcopy
 from typing import List
+from warnings import warn
 
 
 from .node import Node
@@ -8,7 +9,11 @@ from .path import Path
 
 class DirectedGraph:
     @classmethod
-    def _get_path(cls, target_node: Node, path: List[Node], paths: List[List[Node]]):
+    def _get_path(cls,
+                  target_node: Node,
+                  path: List[Node],
+                  paths: List[List[Node]]
+                  ):
         current_node = path[-1]
 
         for _n in current_node.adjacent_nodes:
@@ -34,6 +39,8 @@ class DirectedGraph:
         """
         Returns True if node1 and node2 are d connected. This occurs when at
         least 1 unblocked path between node1 and node2 exists.
+
+        When 2 nodes are d-connected, they are statistically correlated.
         """
         paths = cls.get_paths(node1, node2)
 
@@ -49,6 +56,8 @@ class DirectedGraph:
         Returns True if node1 and node2 are d connected after conditioning on
         a given set of variables. This occurs if at least one conditionally
         unblocked path exists between the 2 nodes.
+
+        When 2 nodes are d-connected, they are statistically correlated.
         """
         paths = cls.get_paths(node1, node2)
 
@@ -56,3 +65,109 @@ class DirectedGraph:
                 for _p in paths]
 
         return any(res)
+
+    @classmethod
+    def is_backdoor_criterion_satisfied(cls,
+                                        treatment: Node,
+                                        outcome: Node,
+                                        conditioned_on: List[Node]
+                                        ) -> bool:
+        """
+        Returns True if the backdoor criterion is satisfied for a given
+        treatment, outcome node and a list of conditioned on variables.
+
+        When the backdoor criterion between a treament and outnode is satisfied,
+        conditioning on a list of variable values, we have blocked all
+        non-causal paths between the treatment and outcome. This means that all
+        non-causal statistical dependence between the treatment and outcome
+        node has been removed.
+
+        In other words, the causal effect of the treatment on the outcome
+        variable is identifiable if we can observe the conditioned on set of
+        variables.
+
+        Conditions for criterion to be satisfied:
+            - no conditioned on node is a child of the treatment node.
+            - the list of variables that we condition on blocks, or d-separates,
+              all paths between the treatment and outcome node. These paths must
+              end with an arrow into the treatment node to be considered.
+        """
+        if any(list(map(treatment.has_child, conditioned_on))):
+            return False
+
+        # all paths between treatment and outcome nodes
+        paths = cls.get_paths(treatment, outcome)
+
+        # only paths that end with an arrow into treatment node
+        paths = [_p for _p in paths if _p.is_backdoor_path(treatment, outcome)]
+
+        if len(paths) < 1:
+            # no backdoor paths between treatment, outcome nodes exist
+            return True
+
+        # backdoor criterion is satisfied when every backdoor path between
+        # treatment and outcome is blocked by conditioned on variables
+        return all([not _p.is_conditionally_unblocked(treatment,
+                                                      outcome,
+                                                      conditioned_on
+                                                     )
+                    for _p in paths])
+    
+    @classmethod
+    def is_frontdoor_criterion_satisfied(cls,
+                                         treatment: Node,
+                                         outcome: Node,
+                                         conditioned_on: List[Node]
+                                         ) -> bool:
+        """
+        Returns True if the front door criterion is satisfied between the
+        treatment and outcome node when conditioning on a given list of variable
+        observations.
+
+        The criterion is satisfied when all 3 criterion below are met:
+            - The conditioned on nodes block all paths between treatment and
+              outcome nodes.
+            - There is no backdoor path from treatment to any of the conditioned
+              on nodes.
+            - All backdoor paths from conditioned on nodes to the outcome are
+              blocked by conditioning on the treatment.
+        """
+        # dev warning
+        warn('DirectedGraph.is_frontdoor_criterion_satisfied has not been tested')
+
+        # all paths between treatment and outcome
+        paths = cls.get_paths(treatment, outcome)
+
+        # get directed paths only, arrows only propagate info from 
+        # treatment to outcome
+        paths = [_p for _p in paths if _p.is_directed_path(treatment, outcome)]
+
+        if any([_p.is_conditionally_unblocked(treatment,
+                                              outcome,
+                                              conditioned_on
+                                              ) for _p in paths]):
+            # set of conditioned on nodes must block all paths from 
+            # treatment to outcome
+            return False
+
+        # paths between treatment and conditioned on nodes
+        for _Z in conditioned_on:
+            paths = cls.get_paths(treatment, _Z)
+
+            if any([_p.is_backdoor_path(treatment, _Z) for _p in paths]):
+                # there cannot be any backdoor paths between treatment and 
+                # conditioned on nodes
+                return False
+
+        for _Z in conditioned_on:
+            # all paths between _Z and outcome
+            paths = cls.get_paths(_Z, outcome)
+
+            # backdoor paths only
+            paths = [_p for _p in paths if _p.is_backdoor_path(_Z, outcome)]
+
+            for _p in paths:
+                if _p.is_unblocked(_Z, outcome):
+                    # all backdoor paths between _Z and outcome must be blocked
+                    return False
+        return True
