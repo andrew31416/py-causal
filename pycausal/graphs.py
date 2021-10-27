@@ -142,23 +142,27 @@ class DirectedGraph:
         # treatment to outcome
         paths = [_p for _p in paths if _p.is_directed_path(treatment, outcome)]
 
-        if any([_p.is_conditionally_unblocked(treatment,
-                                              outcome,
-                                              conditioned_on
-                                              ) for _p in paths]):
-            # set of conditioned on nodes must block all paths from 
-            # treatment to outcome
-            return False
+        # condition 1:
+        # Z intercepts all directed paths from treatment to outcome
+        for _path in paths:
+            if not any([_z in _path.nodes for _z in conditioned_on]):
+                return False
 
-        # paths between treatment and conditioned on nodes
+        # condition 2:
+        # there is no unblocked back door path from treatment to Z
         for _Z in conditioned_on:
             paths = cls.get_paths(treatment, _Z)
 
-            if any([_p.is_backdoor_path(treatment, _Z) for _p in paths]):
-                # there cannot be any backdoor paths between treatment and 
-                # conditioned on nodes
+            # back door paths
+            paths = [_p for _p in paths if _p.is_backdoor_path(treatment, _Z)]
+
+            if any([_p.is_unblocked(treatment, _Z) for _p in paths]):
+                # there cannot be any unblocked backdoor paths between
+                # treatment and conditioned on nodes
                 return False
 
+        # condition 3:
+        # all back-door paths from Z to outcome are blocked by treatment
         for _Z in conditioned_on:
             # all paths between _Z and outcome
             paths = cls.get_paths(_Z, outcome)
@@ -167,7 +171,7 @@ class DirectedGraph:
             paths = [_p for _p in paths if _p.is_backdoor_path(_Z, outcome)]
 
             for _p in paths:
-                if _p.is_unblocked(_Z, outcome):
+                if _p.is_conditionally_unblocked(_Z, outcome, [treatment]):
                     # all backdoor paths between _Z and outcome must be blocked
                     return False
         return True
