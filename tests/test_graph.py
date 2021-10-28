@@ -105,6 +105,9 @@ def test_is_d_connected():
 def test_is_backdoor_criterion_satisfied():
     #-----------#
     # Example 1 #
+    # NOTE: This example is from Figure 4 of J. Pearl, Casual inference in
+    # statistics
+
     xi = Node('xi') # treatment in this example
     xj = Node('xj') # outcome in this example
     x1 = Node('x1')
@@ -125,14 +128,16 @@ def test_is_backdoor_criterion_satisfied():
     x2.add_child(x5)
     x5.add_child(xj)
 
-    assert DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
-                                                         outcome=xj,
-                                                         conditioned_on=[x3, x4],
-                                                         )
-    assert DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
-                                                         outcome=xj,
-                                                         conditioned_on=[x4, x5],
-                                                         )
+    admissible_sets = [[x3, x4], [x4, x5], [x1, x2, x4], [x1, x4]]
+
+    for _sufficient in admissible_sets:
+        # sets that are sufficient for adjustment satisfy the backdoor 
+        # criterion
+        assert DirectedGraph.is_backdoor_criterion_satisfied(xi,
+                                                             xj,
+                                                             _sufficient
+                                                             )
+
     assert not DirectedGraph.is_backdoor_criterion_satisfied(treatment=xi,
                                                              outcome=xj,
                                                              conditioned_on=[x4],

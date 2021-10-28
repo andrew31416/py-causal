@@ -5,6 +5,7 @@ from warnings import warn
 
 from .node import Node
 from .path import Path
+from .util import get_combinations
 
 
 class DirectedGraph:
@@ -175,3 +176,33 @@ class DirectedGraph:
                     # all backdoor paths between _Z and outcome must be blocked
                     return False
         return True
+
+    @classmethod
+    def get_admissible_sets(cls,
+                            treatment: Node,
+                            outcome: Node
+                            ) -> List[List[Node]]:
+        """
+        Returns all admissible sets that are sufficient for adjustment given
+        a treatment and outcome node.
+
+        Returns
+        -------
+        List[List[Node]] -- when no admissible sets are found, method returns []
+        """
+        # List[Node] of all nodes (including treatment) in causal graph
+        all_nodes = treatment.get_all_connected_nodes()
+
+        # remove treatment and outcome from list
+        all_nodes = [_n for _n in all_nodes if _n not in [treatment, outcome]]
+
+        # generate all combinations of nodes in graph that are not treatment
+        # or outcome
+        potential_sets = get_combinations(all_nodes)
+
+        admissible_sets = [_set for _set in potential_sets
+                           if cls.is_backdoor_criterion_satisfied(treatment,
+                                                                  outcome,
+                                                                  _set
+                                                                  )]
+        return admissible_sets

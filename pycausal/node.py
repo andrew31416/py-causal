@@ -86,3 +86,19 @@ class Node:
         exist.
         """
         return self._get_dependents(Node.PARENTS)
+
+    def get_all_connected_nodes(self):
+        """
+        Returns a list of all nodes (inclusive of self) that are connected to
+        self in a single graph.
+        """
+        def _add_node(node: Node, nodes):
+            nodes.append(node)
+
+            for _n in node.adjacent_nodes:
+                if _n not in nodes:
+                    _add_node(_n, nodes)
+
+        nodes = []
+        _add_node(self, nodes)
+        return nodes

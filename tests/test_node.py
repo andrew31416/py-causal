@@ -49,3 +49,23 @@ def test_equal():
     assert n1==n1
     # deepcopy should copy Node.id
     assert n1==deepcopy(n1)
+
+
+def test_get_all_connected_nodes():
+    n1 = Node('n1')
+    n2 = Node('n2')
+    n3 = Node('n3')
+    n4 = Node('n4')
+    n5 = Node('n5')
+
+    assert n1.get_all_connected_nodes() == [n1]
+
+    n1.add_child(n2)
+    assert n1.get_all_connected_nodes() == [n1, n2]
+
+    n2.add_parent(n3)
+    n3.add_child(n1)
+    n4.add_child(n3)
+    n5.add_child(n2)
+
+    assert len(n1.get_all_connected_nodes()) == 5
